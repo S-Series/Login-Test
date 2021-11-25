@@ -6,6 +6,7 @@ using TMPro;
 
 public class BackEnd : MonoBehaviour
 {
+    const string ver = "0.1a";
 
     const string DatabaseLink = 
         "https://docs.google.com/spreadsheets/d/1qzc_NXa0slJjoGExU37vnw0cmDaYvsT70XZK29i8n1I/export?format=tsv";
@@ -19,29 +20,32 @@ public class BackEnd : MonoBehaviour
     [SerializeField]
     TMP_InputField PassInput;
 
+    [SerializeField]
+    TextMeshPro[] AccountInfo;
+
     string id, pass;
 
-    static bool isOnline;
+    public bool isOnline;
 
     void Start()
     {
-        if (Application.internetReachability == NetworkReachability.NotReachable)
+        foreach (TextMeshPro tmp in AccountInfo)
         {
-            // 오프라인모드 실행
-            // StartCoroutine(SystemShutdown());
-            isOnline = false;
+            tmp.text = "----";
         }
-        else
-        {
-            // 데이터베이스 접근 시작
-            StartCoroutine(DatabaseStart());
-            isOnline = true;
-        }
+        isOnline = CheckOnline();
+
+        WWWForm form = new WWWForm();
+        form.AddField("order", "version");
+        form.AddField("version", ver);
+
+        StartCoroutine(VersionPost(form));
     }
 
-    void Update()
+    private bool CheckOnline()
     {
-        
+        if (Application.internetReachability == NetworkReachability.NotReachable) return false;
+        else return true;
     }
 
     private bool SetIDPass()
@@ -65,7 +69,7 @@ public class BackEnd : MonoBehaviour
         form.AddField("id", id);
         form.AddField("pass", pass);
 
-        StartCoroutine(Post(form));
+        StartCoroutine(LoginPost(form));
     }
 
     public void Register()
@@ -81,6 +85,57 @@ public class BackEnd : MonoBehaviour
         form.AddField("pass", pass);
 
         StartCoroutine(Post(form));
+    }
+
+    IEnumerator VersionPost(WWWForm form)
+    {
+        using (UnityWebRequest www = UnityWebRequest.Post(ScriptLink, form))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.isDone)
+            {
+                print(www.downloadHandler.text);
+                if (www.downloadHandler.text == "true") print("true");
+                else StartCoroutine(SystemShutdown());
+            }
+            else
+            {
+
+            }
+        }
+    }
+
+    IEnumerator LoginPost(WWWForm form)
+    {
+        char seperator = ',';
+        string[] textLines;
+        using (UnityWebRequest www = UnityWebRequest.Post(ScriptLink, form))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.isDone)
+            {
+                print(www.downloadHandler.text);
+                textLines = www.downloadHandler.text.Split(seperator);
+
+                print("Force는 " + textLines[0] + "입니다");
+                print("닉네임는 " + textLines[1] + "입니다");
+                print("소지 골드량은 " + textLines[2] + "입니다");
+                print("소지 보석량은 " + textLines[3] + "입니다");
+                print("계정 레벨은 " + textLines[4] + "입니다");
+                print("계정 경험치는 " + textLines[5] + "입니다");
+
+                for (int i = 0; i < 6; i++)
+                {
+                    AccountInfo[i].text = textLines[i];
+                }
+            }
+            else
+            {
+
+            }
+        }
     }
 
     IEnumerator Post(WWWForm form)
@@ -102,10 +157,10 @@ public class BackEnd : MonoBehaviour
 
     IEnumerator SystemShutdown()
     {
-        Debug.LogError("인터넷에 연결되있지 않습니다.\nEnter를 눌러 시스템을 종료합니다.");
+        Debug.LogError("버전이 일치하지 않습니다.\nEnter를 누르거나 화면을 클릭해 시스템을 종료합니다.");
         while (true)
         {
-            if (Input.GetKeyDown(KeyCode.Return))
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetMouseButtonDown(0))
             {
 #if UNITY_EDITOR
                 UnityEditor.EditorApplication.isPlaying = false;
